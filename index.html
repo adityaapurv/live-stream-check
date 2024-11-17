@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Streaming App</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        #videoContainer {
+            position: relative;
+        }
+        #screenVideo {
+            width: 80%;
+            border: 2px solid #333;
+            border-radius: 8px;
+        }
+        #cameraVideo {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 20%;
+            border: 2px solid #333;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #1e90ff;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1c7ed6;
+        }
+        #stopStreamBtn {
+            background-color: #ff4d4d;
+        }
+        #stopStreamBtn:hover {
+            background-color: #e63946;
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Streaming App</h1>
+    <button id="startStreamBtn">Start Streaming</button>
+    <button id="stopStreamBtn" style="display: none;">Stop Streaming</button>
+    <div id="videoContainer">
+        <video id="screenVideo" autoplay playsinline></video>
+        <video id="cameraVideo" autoplay playsinline muted></video>
+    </div>
+    <h2>Viewer Section</h2>
+    <video id="viewerVideo" autoplay playsinline controls style="width: 80%; border: 2px solid #333; border-radius: 8px;"></video>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script>
+        const socket = io('http://yourserver.com'); // Replace with your server URL
+        let screenStream;
+        let cameraStream;
+
+        document.getElementById('startStreamBtn').addEventListener('click', async () => {
+            try {
+                // Capture screen
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                document.getElementById('screenVideo').srcObject = screenStream;
+
+                // Capture front camera
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+                document.getElementById('cameraVideo').srcObject = cameraStream;
+
+                // Stream both video tracks to the server
+                screenStream.getTracks().forEach(track => {
+                    socket.emit('stream', { track, type: 'screen' });
+                });
+
+                cameraStream.getTracks().forEach(track => {
+                    socket.emit('stream', { track, type: 'camera' });
+                });
+
+                // Toggle button visibility
+                document.getElementById('startStreamBtn').style.display = 'none';
+                document.getElementById('stopStreamBtn').style.display = 'inline-block';
+            } catch (error) {
+                console.error('Error starting stream:', error);
+                alert('Failed to start stream. Please ensure permissions are granted.');
+            }
+        });
+
+        document.getElementById('stopStreamBtn').addEventListener('click', () => {
+            // Stop screen stream
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+            }
+            // Stop camera stream
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Toggle button visibility
+            document.getElementById('startStreamBtn').style.display = 'inline-block';
+            document.getElementById('stopStreamBtn').style.display = 'none';
+        });
+
+        // Viewer connection logic
+        socket.on('stream', ({ track, type }) => {
+            const viewerVideo = document.getElementById('viewerVideo');
+            const mediaStream = new MediaStream([track]);
+            viewerVideo.srcObject = mediaStream;
+        });
+    </script>
+</body>
+</html>
